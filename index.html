@@ -1,0 +1,876 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Secure Chat App</title>
+    
+    <style>
+        :root {
+            --primary-color: #007bff;
+            --secondary-color: #f0f2f5;
+            --font-color: #333;
+            --bg-color: #ffffff;
+            --border-color: #ddd;
+            --chat-bg: #e9eaeb;
+            --my-message-bg: #007bff;
+            --my-message-color: #fff;
+            --their-message-bg: #fff;
+            --their-message-color: #333;
+            --accent-color: #28a745;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: var(--secondary-color);
+            color: var(--font-color);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* --- Login Page --- */
+        #auth-container {
+            width: 100%;
+            max-width: 400px;
+            padding: 2rem;
+            background-color: var(--bg-color);
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+            text-align: center;
+            z-index: 10;
+        }
+        
+        #auth-container.hidden { display: none; }
+        
+        #auth-container h1 {
+            color: var(--primary-color);
+            margin-bottom: 1.5rem;
+        }
+        
+        .auth-form input {
+            width: calc(100% - 20px);
+            padding: 10px;
+            margin-bottom: 1rem;
+            border: 1px solid var(--border-color);
+            border-radius: 5px;
+            font-size: 1rem;
+        }
+        
+        .auth-form button {
+            width: 100%;
+            padding: 12px;
+            border: none;
+            border-radius: 5px;
+            background-color: var(--primary-color);
+            color: white;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        
+        #toggle-form {
+            color: var(--primary-color);
+            cursor: pointer;
+            text-decoration: none;
+            margin-top: 1rem;,
+            display: inline-block;
+            font-size: 0.9rem;
+        }
+        
+        #auth-error {
+            color: red;
+            font-size: 0.9rem;
+            margin-top: 1rem;
+            display: none;
+        }
+
+        /* --- Main App Page --- */
+        #app-container {
+            width: 100%;
+            height: 100vh;
+            max-width: 1000px;
+            display: none; /* Hidden by default */
+            flex-direction: row;
+            background-color: var(--bg-color);
+            box-shadow: 0 0 20px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        
+        #app-container.visible { display: flex; }
+
+        /* --- Sidebar --- */
+        #sidebar {
+            width: 300px;
+            background-color: var(--secondary-color);
+            border-right: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+        }
+        
+        .sidebar-header {
+            padding: 1rem;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .sidebar-header #user-email-display {
+            font-size: 0.9rem;
+            font-weight: 600;
+            word-break: break-all;
+        }
+
+        .sidebar-header #logout-button {
+            background: #dc3545;
+            color: white;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: 600;
+            margin-top: 10px;
+        }
+        
+        .sidebar-section {
+            padding: 1rem;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .sidebar-section h3 {
+            margin-top: 0;
+            font-size: 1rem;
+            color: #555;
+        }
+        
+        #create-chat-button {
+            width: 100%;
+            padding: 10px;
+            background-color: var(--accent-color);
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: 600;
+        }
+        
+        #invites-list, #chats-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .invite-item, .chat-item {
+            padding: 10px;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .chat-item {
+            cursor: pointer;
+        }
+        .chat-item:hover, .chat-item.active {
+            background-color: #e0e0e0;
+        }
+        
+        .invite-item p {
+            font-size: 0.9rem;
+            margin: 0 0 10px 0;
+        }
+        .invite-item button {
+            padding: 5px 8px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            color: white;
+            margin-right: 5px;
+        }
+        .invite-accept { background-color: var(--accent-color); }
+        .invite-reject { background-color: #dc3545; }
+
+        /* --- Chat Window --- */
+        #chat-window {
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            background-color: var(--bg-color);
+        }
+        
+        #chat-placeholder {
+            flex-grow: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: #888;
+            font-size: 1.2rem;
+        }
+        
+        #chat-area {
+            flex-grow: 1;
+            display: none; /* Hidden until a chat is selected */
+            flex-direction: column;
+            overflow: hidden;
+        }
+        
+        .chat-header {
+            padding: 1rem;
+            background-color: #f8f9fa;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .chat-header h2 {
+            margin: 0;
+            font-size: 1.2rem;
+        }
+        
+        #invite-user-button {
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: 600;
+        }
+
+        #messages-box {
+            flex-grow: 1;
+            overflow-y: auto;
+            padding: 1.5rem;
+            background-color: var(--chat-bg);
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .message {
+            max-width: 70%;
+            padding: 10px 15px;
+            border-radius: 18px;
+            margin-bottom: 1rem;
+            line-height: 1.4;
+        }
+        
+        .message .sender {
+            display: block;
+            font-size: 0.8rem;
+            font-weight: 600;
+            margin-bottom: 5px;
+            color: #555;
+        }
+
+        .message.mine {
+            background-color: var(--my-message-bg);
+            color: var(--my-message-color);
+            align-self: flex-end;
+            border-bottom-right-radius: 4px;
+        }
+        
+        .message.mine .sender { display: none; }
+        
+        .message.theirs {
+            background-color: var(--their-message-bg);
+            color: var(--their-message-color);
+            align-self: flex-start;
+            border-bottom-left-radius: 4px;
+        }
+        
+        #message-form-container {
+            border-top: 1px solid var(--border-color);
+            background-color: #f8f9fa;
+        }
+        
+        #emoji-picker {
+            padding: 10px;
+            border-bottom: 1px solid var(--border-color);
+        }
+        
+        .emoji {
+            font-size: 1.5rem;
+            cursor: pointer;
+            padding: 5px;
+            transition: transform 0.1s;
+        }
+        .emoji:hover {
+            transform: scale(1.2);
+        }
+
+        #message-form {
+            display: flex;
+            padding: 1rem;
+        }
+        
+        #message-input {
+            flex-grow: 1;
+            border: 1px solid var(--border-color);
+            border-radius: 20px;
+            padding: 12px 15px;
+            font-size: 1rem;
+            margin-right: 10px;
+        }
+        
+        #message-form button {
+            border: none;
+            background-color: var(--primary-color);
+            color: white;
+            padding: 12px 20px;
+            border-radius: 20px;
+            font-weight: 600;
+            cursor: pointer;
+            font-size: 1rem;
+        }
+
+    </style>
+</head>
+<body>
+
+    <div id="auth-container">
+        <h1 id="auth-title">Login</h1>
+        <form class="auth-form" id="auth-form">
+            <input type="email" id="email-input" placeholder="Email" required>
+            <input type="password" id="password-input" placeholder="Password" required>
+            <button type="submit" id="auth-button">Login</button>
+        </form>
+        <p id="auth-error"></p>
+        <a href="#" id="toggle-form">Don't have an account? Sign Up</a>
+    </div>
+
+    <div id="app-container">
+        
+        <aside id="sidebar">
+            <header class="sidebar-header">
+                <span id="user-email-display"></span>
+                <button id="logout-button">Logout</button>
+            </header>
+            
+            <section class="sidebar-section">
+                <button id="create-chat-button">Create New Chat</button>
+            </section>
+            
+            <section class="sidebar-section">
+                <h3>Pending Invites</h3>
+                <ul id="invites-list">
+                    </ul>
+            </section>
+            
+            <section class="sidebar-section" style="flex-grow: 1; overflow-y: auto;">
+                <h3>My Chats</h3>
+                <ul id="chats-list">
+                    </ul>
+            </section>
+        </aside>
+        
+        <main id="chat-window">
+            
+            <div id="chat-placeholder">
+                Select a chat to start messaging
+            </div>
+            
+            <div id="chat-area">
+                <header class="chat-header">
+                    <h2 id="chat-name-header"></h2>
+                    <button id="invite-user-button">Invite User</button>
+                </header>
+                
+                <main id="messages-box">
+                    </main>
+                
+                <footer id="message-form-container">
+                    <div id="emoji-picker">
+                        <span class="emoji">😀</span>
+                        <span class="emoji">😂</span>
+                        <span class="emoji">😍</span>
+                        <span class="emoji">🤔</span>
+                        <span class="emoji">👍</span>
+                        <span class="emoji">🔥</span>
+                        <span class="emoji">🎉</span>
+                        <span class="emoji">❤️</span>
+                    </div>
+                    <form id="message-form">
+                        <input type="text" id="message-input" placeholder="Type a message..." autocomplete="off">
+                        <button type="submit">Send</button>
+                    </form>
+                </footer>
+            </div>
+            
+        </main>
+    </div>
+
+
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
+
+    <script>
+        // Step 2: Initialize Firebase
+        const firebaseConfig = {
+          apiKey: "AIzaSyDsdvPH4UTzw6_NXcgM2jd0T_ego-bEVt0",
+  authDomain: "chat-61aca.firebaseapp.com",
+  projectId: "chat-61aca",
+  storageBucket: "chat-61aca.firebasestorage.app",
+  messagingSenderId: "301562082521",
+  appId: "1:301562082521:web:ac5ddedee69892111e7ac8",
+  measurementId: "G-Y024S9LXYN"
+        };
+
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+
+        // Get references to Firebase services
+        const auth = firebase.auth();
+        const db = firebase.firestore();
+
+        // --- Global State Variables ---
+        let currentUser = null;
+        let currentChatId = null;
+        let unsubscribeMessages = null; // Function to stop listening to old chat
+        let unsubscribeInvites = null;
+        let unsubscribeChats = null;
+
+        // --- HTML Element References ---
+        // Auth
+        const authContainer = document.getElementById('auth-container');
+        const authForm = document.getElementById('auth-form');
+        const emailInput = document.getElementById('email-input');
+        const passwordInput = document.getElementById('password-input');
+        const authButton = document.getElementById('auth-button');
+        const authTitle = document.getElementById('auth-title');
+        const toggleFormLink = document.getElementById('toggle-form');
+        const authError = document.getElementById('auth-error');
+        
+        // App
+        const appContainer = document.getElementById('app-container');
+        const logoutButton = document.getElementById('logout-button');
+        const userEmailDisplay = document.getElementById('user-email-display');
+        
+        // Sidebar
+        const createChatButton = document.getElementById('create-chat-button');
+        const invitesList = document.getElementById('invites-list');
+        const chatsList = document.getElementById('chats-list');
+        
+        // Chat Window
+        const chatPlaceholder = document.getElementById('chat-placeholder');
+        const chatArea = document.getElementById('chat-area');
+        const chatNameHeader = document.getElementById('chat-name-header');
+        const inviteUserButton = document.getElementById('invite-user-button');
+        const messagesBox = document.getElementById('messages-box');
+        const messageForm = document.getElementById('message-form');
+        const messageInput = document.getElementById('message-input');
+        const emojiPicker = document.getElementById('emoji-picker');
+
+        let isLoginMode = true;
+
+        // ===================================
+        // --- AUTHENTICATION LOGIC ---
+        // ===================================
+        
+        // Toggle between Login and Sign Up
+        toggleFormLink.addEventListener('click', (e) => {
+            e.preventDefault();
+            isLoginMode = !isLoginMode;
+            authTitle.innerText = isLoginMode ? 'Login' : 'Sign Up';
+            authButton.innerText = isLoginMode ? 'Login' : 'Sign Up';
+            toggleFormLink.innerText = isLoginMode ? "Don't have an account? Sign Up" : 'Have an account? Login';
+            authError.style.display = 'none';
+        });
+
+        // Handle form submission (Login or Sign Up)
+        authForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const email = emailInput.value;
+            const password = passwordInput.value;
+            authError.style.display = 'none';
+
+            if (isLoginMode) {
+                // --- Login ---
+                auth.signInWithEmailAndPassword(email, password)
+                    .catch((error) => handleError(error, "Login Error"));
+            } else {
+                // --- Sign Up ---
+                auth.createUserWithEmailAndPassword(email, password)
+                    .then((userCredential) => {
+                        // ** NEW **: Create a user document in Firestore
+                        console.log('New user created, creating user doc...');
+                        const user = userCredential.user;
+                        return db.collection('users').doc(user.uid).set({
+                            email: user.email,
+                            myChats: [] // Start with an empty list of chats
+                        });
+                    })
+                    .catch((error) => handleError(error, "Sign Up Error"));
+            }
+        });
+
+        // Handle Logout
+        logoutButton.addEventListener('click', () => {
+            if (unsubscribeMessages) unsubscribeMessages();
+            if (unsubscribeInvites) unsubscribeInvites();
+            if (unsubscribeChats) unsubscribeChats();
+            auth.signOut();
+        });
+
+        // --- Auth State Change (The MAIN logic) ---
+        auth.onAuthStateChanged((user) => {
+            if (user) {
+                // User is logged IN
+                currentUser = user;
+                showAppPage();
+                loadUserData();
+            } else {
+                // User is logged OUT
+                currentUser = null;
+                showAuthPage();
+            }
+        });
+        
+        // --- UI Switching ---
+        function showAppPage() {
+            authContainer.classList.add('hidden');
+            appContainer.classList.add('visible');
+            userEmailDisplay.innerText = currentUser.email;
+        }
+
+        function showAuthPage() {
+            authContainer.classList.remove('hidden');
+            appContainer.classList.remove('visible');
+            // Clear all UI elements
+            invitesList.innerHTML = '';
+            chatsList.innerHTML = '';
+            messagesBox.innerHTML = '';
+            chatArea.style.display = 'none';
+            chatPlaceholder.style.display = 'flex';
+        }
+        
+        function handleError(error, context = "Error") {
+            console.error(context, error.message);
+            authError.innerText = error.message;
+            authError.style.display = 'block';
+        }
+
+        // ===================================
+        // --- DATA LOADING & REAL-TIME ---
+        // ===================================
+
+        function loadUserData() {
+            // 1. Listen for pending invitations
+            listenForInvites();
+            
+            // 2. Listen for changes to the user's chat list
+            listenForChats();
+        }
+
+        function listenForInvites() {
+            // Unsubscribe from any old listener
+            if (unsubscribeInvites) unsubscribeInvites();
+            
+            const invitesRef = db.collection('invitations');
+            unsubscribeInvites = invitesRef
+                .where('invitedEmail', '==', currentUser.email)
+                .onSnapshot((querySnapshot) => {
+                    invitesList.innerHTML = ''; // Clear old invites
+                    if (querySnapshot.empty) {
+                        invitesList.innerHTML = '<li>No pending invites</li>';
+                    }
+                    querySnapshot.forEach((doc) => {
+                        displayInvite(doc.id, doc.data());
+                    });
+                }, (error) => console.error("Error listening for invites:", error));
+        }
+        
+        function listenForChats() {
+            // Unsubscribe from any old listener
+            if (unsubscribeChats) unsubscribeChats();
+
+            // Listen to the *user's document* to see when their chat list changes
+            const userDocRef = db.collection('users').doc(currentUser.uid);
+            unsubscribeChats = userDocRef.onSnapshot(async (userDoc) => {
+                if (!userDoc.exists) {
+                    console.log("User doc doesn't exist, creating...");
+                    // This is a failsafe, should have been created on sign up
+                    await userDocRef.set({ email: currentUser.email, myChats: [] });
+                    chatsList.innerHTML = '<li>No chats yet</li>';
+                    return;
+                }
+                
+                const userData = userDoc.data();
+                const chatIds = userData.myChats || [];
+                
+                chatsList.innerHTML = ''; // Clear old chat list
+                
+                if (chatIds.length === 0) {
+                    chatsList.innerHTML = '<li>No chats yet</li>';
+                    return;
+                }
+
+                // Now, for each chat ID, get the chat's details
+                for (const chatId of chatIds) {
+                    try {
+                        const chatDoc = await db.collection('chats').doc(chatId).get();
+                        if (chatDoc.exists) {
+                            displayChatInList(chatId, chatDoc.data());
+                        }
+                    } catch (error) {
+                        console.error("Error fetching chat details:", error);
+                    }
+                }
+            }, (error) => console.error("Error listening for user chats:", error));
+        }
+        
+        // ===================================
+        // --- UI DISPLAY FUNCTIONS ---
+        // ===================================
+        
+        function displayInvite(inviteId, inviteData) {
+            const li = document.createElement('li');
+            li.className = 'invite-item';
+            li.innerHTML = `
+                <p>From: <strong>${inviteData.inviterEmail}</strong></p>
+                <p>Chat: <strong>${inviteData.chatName}</strong></p>
+                <button class="invite-accept" data-id="${inviteId}" data-chat-id="${inviteData.chatId}">Accept</button>
+                <button class="invite-reject" data-id="${inviteId}">Reject</button>
+            `;
+            invitesList.appendChild(li);
+        }
+        
+        function displayChatInList(chatId, chatData) {
+            const li = document.createElement('li');
+            li.className = 'chat-item';
+            li.innerText = chatData.name;
+            li.dataset.chatId = chatId;
+            li.dataset.chatName = chatData.name;
+            
+            if (chatId === currentChatId) {
+                li.classList.add('active');
+            }
+            
+            chatsList.appendChild(li);
+        }
+        
+        function displayMessage(messageData) {
+            const msgDiv = document.createElement('div');
+            msgDiv.classList.add('message');
+            
+            if (messageData.uid === currentUser.uid) {
+                msgDiv.classList.add('mine');
+            } else {
+                msgDiv.classList.add('theirs');
+                msgDiv.innerHTML = `<span class="sender">${messageData.email}</span>`;
+            }
+            
+            const textNode = document.createTextNode(messageData.text);
+            msgDiv.appendChild(textNode);
+            messagesBox.appendChild(msgDiv);
+        }
+
+        // ===================================
+        // --- CHAT ACTIONS ---
+        // ===================================
+        
+        // --- 1. Create a New Chat ---
+        createChatButton.addEventListener('click', async () => {
+            const chatName = prompt("Enter a name for your new chat:");
+            if (!chatName || chatName.trim() === '') return;
+            
+            try {
+                // 1. Create the chat document
+                const chatDocRef = await db.collection('chats').add({
+                    name: chatName,
+                    isGroup: true,
+                    members: [currentUser.uid], // Creator is the first member
+                    createdBy: currentUser.email
+                });
+                
+                // 2. Add this new chat ID to the user's 'myChats' array
+                await db.collection('users').doc(currentUser.uid).update({
+                    myChats: firebase.firestore.FieldValue.arrayUnion(chatDocRef.id)
+                });
+                
+                console.log("Chat created:", chatDocRef.id);
+                // The real-time listener 'listenForChats' will automatically update the UI
+                
+            } catch (error) {
+                console.error("Error creating chat:", error);
+                alert("Failed to create chat. Check security rules.");
+            }
+        });
+        
+        // --- 2. Handle Invite Actions (Accept/Reject) ---
+        invitesList.addEventListener('click', async (e) => {
+            const target = e.target;
+            const inviteId = target.dataset.id;
+            
+            if (!inviteId) return;
+
+            const inviteRef = db.collection('invitations').doc(inviteId);
+            
+            if (target.classList.contains('invite-reject')) {
+                // --- Reject ---
+                try {
+                    await inviteRef.delete();
+                    console.log("Invite rejected and deleted");
+                    // UI will update via 'listenForInvites'
+                } catch (error) {
+                    console.error("Error rejecting invite:", error);
+                }
+            
+            } else if (target.classList.contains('invite-accept')) {
+                // --- Accept ---
+                const chatId = target.dataset.chatId;
+                
+                // Use a batch write to do all 3 steps atomically
+                const batch = db.batch();
+                
+                // 1. Add user to the chat's 'members' array
+                const chatRef = db.collection('chats').doc(chatId);
+                batch.update(chatRef, {
+                    members: firebase.firestore.FieldValue.arrayUnion(currentUser.uid)
+                });
+                
+                // 2. Add chat to the user's 'myChats' array
+                const userRef = db.collection('users').doc(currentUser.uid);
+                batch.update(userRef, {
+                    myChats: firebase.firestore.FieldValue.arrayUnion(chatId)
+                });
+                
+                // 3. Delete the invitation
+                batch.delete(inviteRef);
+                
+                try {
+                    await batch.commit();
+                    console.log("Invite accepted! User added to chat.");
+                    // Both 'listenForInvites' and 'listenForChats' will update the UI
+                } catch (error) {
+                    console.error("Error accepting invite:", error);
+                    alert("Failed to accept invite. The chat may have been deleted.");
+                }
+            }
+        });
+        
+        // --- 3. Select a Chat from the List ---
+        chatsList.addEventListener('click', (e) => {
+            const li = e.target.closest('.chat-item');
+            if (!li) return;
+            
+            const chatId = li.dataset.chatId;
+            const chatName = li.dataset.chatName;
+            
+            // Don't re-load if it's already the active chat
+            if (chatId === currentChatId) return;
+            
+            currentChatId = chatId;
+            
+            // Update UI to show this chat is active
+            document.querySelectorAll('.chat-item.active').forEach(el => el.classList.remove('active'));
+            li.classList.add('active');
+            
+            chatNameHeader.innerText = chatName;
+            chatPlaceholder.style.display = 'none';
+            chatArea.style.display = 'flex';
+            
+            // Start listening for messages in this *new* chat
+            listenForMessages(chatId);
+        });
+
+        // --- 4. Invite a User to the Current Chat ---
+        inviteUserButton.addEventListener('click', async () => {
+            if (!currentChatId) return;
+            
+            const emailToInvite = prompt("Enter the email of the user to invite:");
+            if (!emailToInvite || emailToInvite.trim() === '' || emailToInvite === currentUser.email) {
+                alert("Invalid email.");
+                return;
+            }
+            
+            try {
+                // ** Security Check **: We can't query the 'users' collection for this email
+                // because our rules forbid it (to protect user privacy).
+                // We just have to "blindly" create the invite. If the email is wrong,
+                // the user just won't ever see it. This is a secure pattern.
+                
+                await db.collection('invitations').add({
+                    invitedEmail: emailToInvite,
+                    inviterEmail: currentUser.email,
+                    inviterUid: currentUser.uid,
+                    chatId: currentChatId,
+                    chatName: chatNameHeader.innerText,
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+                
+                alert(`Invite sent to ${emailToInvite}!`);
+                
+            } catch (error) {
+                console.error("Error sending invite:", error);
+                alert("Failed to send invite.");
+            }
+        });
+
+        // ===================================
+        // --- MESSAGING LOGIC ---
+        // ===================================
+
+        function listenForMessages(chatId) {
+            // Stop listening to the *old* chat's messages
+            if (unsubscribeMessages) {
+                unsubscribeMessages();
+            }
+            
+            const messagesRef = db.collection('chats').doc(chatId).collection('messages');
+            
+            unsubscribeMessages = messagesRef
+                .orderBy('createdAt', 'asc') // Get messages in order
+                .limitToLast(100)           // Only get the last 100
+                .onSnapshot((querySnapshot) => {
+                    messagesBox.innerHTML = ''; // Clear old messages
+                    
+                    querySnapshot.forEach((doc) => {
+                        displayMessage(doc.data());
+                    });
+                    
+                    // Auto-scroll to bottom
+                    messagesBox.scrollTop = messagesBox.scrollHeight;
+                }, (error) => console.error("Error listening for messages:", error));
+        }
+
+        // --- Handle Sending a Message ---
+        messageForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const messageText = messageInput.value;
+            
+            if (messageText.trim() === '' || !currentChatId) return;
+            
+            try {
+                // Create the new message in the sub-collection
+                await db.collection('chats').doc(currentChatId).collection('messages').add({
+                    text: messageText,
+                    email: currentUser.email,
+                    uid: currentUser.uid,
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+                
+                messageInput.value = ''; // Clear input
+                // The 'listenForMessages' snapshot will auto-update the UI
+                
+            } catch (error) {
+                console.error("Error sending message:", error);
+                alert("Failed to send message. You may not be a member of this chat.");
+            }
+        });
+        
+        // --- Simple Emoji Picker Logic ---
+        emojiPicker.addEventListener('click', (e) => {
+            if (e.target.classList.contains('emoji')) {
+                messageInput.value += e.target.innerText;
+                messageInput.focus();
+            }
+        });
+
+    </script>
+</body>
+</html>
